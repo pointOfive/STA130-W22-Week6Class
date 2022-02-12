@@ -1,0 +1,596 @@
+---
+title: "Week 6 synchronous class and video code (complete)"
+date: "2021-02-21"
+author: "Prof. Caetano"
+output:
+  pdf_document: default
+---
+
+```{r, message=FALSE}
+library(tidyverse)
+```
+
+# Synchronous class
+
+## [Case study 1]
+
+Consider the car insurance claims paid by an insurer over a certain time period in the `auto_claims_population.csv` data set. You will use this data for your problem set also. Assume this data set includes *ALL* claims paid (in USD) to claimants 50 years of age and older in a specific year. In other words, it represents a 'population' of car insurance claims in that year.   
+
+### (a) Select 1000 samples of size 20 from the population of claims stored in the `auto_claims_population.csv` data set (each sample is taken without replacement, so there are no repeated observations within each sample). Compute the mean age of claimants for each sample and produce appropriate summaries of the simulated sample means.
+
+```{r}
+AutoClaimsPop <- read_csv("auto_claims_population.csv")
+
+set.seed(246)
+n <- 20
+repetitions <- 1000
+sim20 <- rep(NA, repetitions)
+
+for (i in 1:repetitions)
+{
+  new_sim <- AutoClaimsPop %>% sample_n(size=20, replace=FALSE)
+  sim_mean <- new_sim %>% 
+    summarize(mean(AGE)) %>% 
+    as.numeric()
+  
+  sim20[i] <- sim_mean
+}
+sim20 <- tibble(means = sim20)
+sim20 %>% ggplot(aes(x = means)) +
+  geom_histogram(binwidth = 2, colour = "black", fill = "grey") +
+  labs(x="Sample mean ages for samples of size 20 from the population")
+
+summarise(sim20,
+          min=min(means),
+          mean = mean(means),
+          median = median(means), 
+          max=max(means),
+          sd = sd(means),
+          n=n())
+
+```
+
+### (b) Now suppose we only had data for ONE random sample of 20 car insurance claims, and that these 20 observations are stored in `ages20`.
+
+```{r}
+set.seed(321)
+ages20 <- tibble(age=sample(AutoClaimsPop$AGE,size = 20, replace=FALSE))
+glimpse(ages20)
+ages20 %>% ggplot(aes(x = age)) +
+  geom_histogram(binwidth = 2, colour = "black", fill = "grey") +
+  labs(x="Ages of Claimants of Random Sample of 20 Claims")
+summarise(ages20,
+          min=min(age),
+          mean = mean(age),
+          median = median(age), 
+          max=max(age),
+          sd = sd(age),
+          n=n())
+
+```
+
+### Use R to take 1000 bootstrap samples from the ages of the claimants of the claims sampled and stored in `ages20`. Compute the mean age of claimants for each bootstrap sample of claims and produce appropriate summaries of the bootstrap sample means.
+
+```{r}
+set.seed(246)
+boot_means <- rep(NA, 1000)  # where we'll store the bootstrap means
+sample_size <- 20
+for (i in 1:1000)
+{
+  boot_samp <- ages20 %>% sample_n(size = sample_size, replace=TRUE)
+  boot_means[i] <- as.numeric(boot_samp %>% summarize(mean(age)))
+}
+boot_means <- tibble(means=boot_means)
+boot_means %>% ggplot(aes(x = means)) +
+  geom_histogram(binwidth = 2, colour = "black", fill = "grey") +
+  labs(x="Sample mean ages for samples of size 20")
+summarise(boot_means,
+          min=min(means),
+          mean = mean(means),
+          median = median(means), 
+          max=max(means),
+          sd = sd(means),
+          n=n())
+```
+
+
+### (c) What distribution do the distributions we simulated in (a) and (b) both estimate? Comment on the similarities and differences in the estimates we obtained.
+
+*Both distributions estimate the same sampling distribution - the *sampling distribution of the sample mean age of claimants based on a random samples of 20 claims. *So, it is not surprising that both estimated distributions are similar in terms of shape, centre and spread. They are both approximately symmetric and unimodal, their means are relatively close (63.8 and 60 years respectively) and their standard deviations just differ a little bit (2.39 vs 2.19 years).*
+
+*The estimate of the sampling distribution in (a) was obtained by sampling directly from the population; whereas the estimate of the sampling distribution in (b) was obtained by resampling (i.e., taking bootstrap samples) from a specific random sample of 20 claims. If the sample is not representative of the population of claims, then the estimate of the sampling distribution based on bootstrap samples from that non-representative sample will not reflect the sampling distribution of mean ages very well.*
+
+
+\newpage
+
+## [Case study 2]
+
+In this question we will look at data from the Child Health and Development Studies. Our data are adapted from the `Gestation` data set in the `mosaicData` package. Birth weight, date, and gestational period were collected as part of the Child Health and Development Studies in 1961 and 1962 for a sample of 400 mothers who had babies in these two years. Information about the baby's parents—age, education, height, weight, and whether the mother smoked—was also recorded.
+
+We will find confidence intervals for parameters related to the distribution of the mother's age, which for this sample is stored in the variable `age`.
+
+```{r}
+Gestation <- read_csv("gestation.csv")
+```
+
+### (a) Suppose we are interested in how means of random samples of n=400 mothers vary across possible samples of 400 mothers we could take from the population. Explain why it is not possible to use these data (i.e., 'Gestation') to estimate this like we did in Case Study 1, question a).
+
+*In Case Study 1, question a, we estimated the sampling distribution of the sample mean based on samples of n=20 observations by repeatedly drawing samples of size 20 from the population of claims, which were available in the 'auto_claims_population.csv' data set. The data for this question are on a sample of mothers who participated in the Child Health and Development Studies in 1961 and 1962. The n=400 ages here, then, represent ages for a *sample *of mothers, not the entire population. Therefore, we cannot repeatedly take samples of 400 observations from the population. We do not have data on the entire population.* 
+
+
+### (b)  The plot below shows the bootstrap distribution for the mean of mother's age for 100 bootstrap samples.  The red dot is the estimate of the mean for the first bootstrap sample, and the grey dots are the estimates of the mean for the other 99 bootstrap samples.
+```{r, message=F, warning=F, echo=F}
+set.seed(50)
+boot_means <- rep(NA, 100)  # where we'll store the bootstrap means
+sample_size <- as.numeric(Gestation %>% summarize(n()))
+
+# Run 100 bootstrap samples
+for (i in 1:100)
+{
+  boot_samp <- Gestation %>% sample_n(size = sample_size, replace=TRUE)
+  boot_means[i] <- as.numeric(boot_samp %>% summarize(mean(age)))
+}
+
+boot_means1 <- tibble(boot_means=boot_means[1])
+boot_means2to100 <- tibble(boot_means=boot_means[2:100])
+
+# Plot the distribution
+ggplot(boot_means2to100, aes(x=boot_means)) + 
+  geom_dotplot(alpha=.5) + 
+  geom_dotplot(data=boot_means1, aes(x=boot_means), fill="red", alpha=.5) +
+  labs( title="Bootstrap distribution for mean of mother's age") +
+  scale_y_continuous(NULL, breaks = NULL) # get rid of strange label on y-axis for dotplot
+boot_means <- tibble(boot_means)
+summarise(boot_means,
+          min=min(boot_means),
+          mean = mean(boot_means),
+          median = median(boot_means), 
+          max=max(boot_means),
+          sd = sd(boot_means),
+          n=n())
+```
+
+  i) Explain how the value of the red dot is calculated.
+
+*The red dot is the mean of mother's age for one bootstrap sample.  The bootstrap sample is obtained by taking a random sample with replacement, from the original sample data, with the same number of observations as the original sample.*
+
+  (ii) Using this plot, estimate a 90% confidence interval for the mean of mother's age.
+
+*The 90% confidence interval ranges from approximately the 5th largest data point to the 95th largest data point. This interval will be from a value a little below 27.0 to a value a little below 28.0.*
+
+### (c)  
+
+  (i) Use R to find a 99% bootstrap confidence interval for the mean of mother's age.  Use 2000 bootstrap samples. *NOTE:* More bootstrap samples is better, but if you find your analysis times out or takes too long in RStudio  , you can try using 1000 bootstrap samples instead.
+  
+```{r}
+repetitions <- 2000
+boot_means <- rep(NA, repetitions)  # where we'll store the bootstrap means
+sample_size <- as.numeric(Gestation %>% summarize(n()))
+set.seed(50)
+for (i in 1:repetitions)
+{
+  boot_samp <- Gestation %>% sample_n(size = sample_size, replace=TRUE)
+  boot_means[i] <- as.numeric(boot_samp %>% summarize(mean(age)))
+}
+quantile(boot_means,c(.005,.995))
+```
+
+
+  (ii) Explain why the interpretation *"We are 99% sure that the true mean of a mother's age at the time this sample was taken is between 26.8 and 28.2 years."* is *INCORRECT*. What is a correct interpretation?
+
+*The true mean age of mothers in 1961/62 is unknown, but it's not random. In other words, it's a fixed, but unknown constant. Therefore it either is or isn't in this interval (i.e., the chance is either 0% or 100%). We just do not know either way.*
+
+*We can conclude that we are 99% *confident *that the true mean mother's age in 1961/62 was between 26.8 and 28.2 years. We are confident in this because the method we used to obtain the interval will produce intervals that do include the true value of the parameter of interest for 99% of the possible samples we could take.*
+
+ 
+### (d) 
+  
+  (i) Use R to find a 95% bootstrap confidence interval for the *median* of mother's age.  Use 2000 bootstrap samples. *NOTE:* More bootstrap samples is better, but if you find this times out or takes too long in RStudio  , try using 1000 bootstrap samples instead.
+```{r}
+repetitions <- 2000;
+boot_medians <- rep(NA, repetitions) 
+sample_size <- as.numeric(Gestation %>% summarize(n()))
+set.seed(579)
+for (i in 1:repetitions)
+{
+  boot_samp <- Gestation %>% sample_n(size = sample_size, replace=TRUE)
+  boot_medians[i] <- as.numeric(boot_samp %>% summarize(median(age)))
+}
+quantile(boot_medians,c(0.025,0.975))
+```
+
+
+  (ii) Write an interpretation of this interval.
+
+*The 95% bootstrap confidence interval for the median of mother's age is (26, 27). We are 95% confident that the median age of all mothers in 1961/62 is between 26 and 27 years based on these data.*
+
+\newpage
+
+# Video code
+
+## Setting up the flights data
+```{r}
+#install.packages("nycflights13")
+library(tidyverse)
+library(nycflights13)
+# Save data in a data frame called SF
+SF <- flights %>% filter(dest=="SFO" & !is.na(arr_delay))
+dim(SF)
+```
+
+## Summarise the flights data
+
+```{r}
+SF %>% summarise(
+  mean_delay = mean(arr_delay),
+  median_delay = median(arr_delay),
+  max_delay = max(arr_delay))
+```
+
+```{r}
+# We'll save the population mean, 
+# so we can use it later on
+population_mean <- SF %>%
+  summarize(population_mean_delay = 
+              mean(arr_delay))
+
+population_mean <- 
+  as.numeric(population_mean)
+```
+
+## Take a sample 
+
+```{r, echo=FALSE}
+set.seed(987)
+```
+ 
+```{r}
+# sample of 25 flights from our population
+# by default, replace = FALSE (i.e. sampling without replacement)
+sample25 <- SF %>% sample_n(size=25, replace = FALSE)
+```
+
+### What is the difference between `sample()` and `sample_n()`?
+
+```{r, eval=FALSE}
+sample(c("H", "T"), probs=c(0.5, 0.5), 
+       size=10, replace=TRUE)
+sample(1:6, replace=FALSE`)
+```
+
+The `sample()` function samples elements from a **vector**, with or without replacement
+
+```{r, eval=FALSE}
+# Create our sample
+SF %>% sample_n(size=25, replace=FALSE)
+```
+
+The `sample_n()` samples rows (observations) from a data frame, with or without replacement
+
+## Calculate summary values for this sample
+
+```{r}
+sample25 %>% summarise(mean_delay = mean(arr_delay),
+                 median_delay = median(arr_delay),
+                 max_delay = max(arr_delay))
+```
+
+## Looking at multiple samples of size n=25
+
+```{r, echo=FALSE, fig.height=8}
+SF %>% ggplot(aes(x=arr_delay)) + geom_histogram(binwidth=5) + 
+  geom_point(aes(x=mean(SF$arr_delay), y=0), color="blue", size=6) + labs(x="Arrival Delays (actual-scheduled) in minutes for all flights", title=paste("Distribution of arrival delays for all flights, \n with population mean of ", round(mean(SF$arr_delay), digits=2), sep="")) + theme(text=element_text(size=18))
+```
+
+
+```{r, fig.height=3, echo=FALSE}
+set.seed(1234)
+d25 <- SF %>% sample_n(size = 25, replace=FALSE) 
+d25 %>% ggplot(aes(x=arr_delay)) + geom_histogram(binwidth=5) + geom_point(aes(x=mean(d25$arr_delay), y=0), color="red", size=4) + labs(x="Arrival Delays (actual-scheduled) in minutes for 25 flights", title=paste("Sample of 25 flights, with sample mean of ", mean(d25$arr_delay), sep="")) + xlim(-100, 500) + theme(text=element_text(size=15))
+
+d25 <- SF %>% sample_n(size = 25, replace=FALSE) 
+d25 %>% ggplot(aes(x=arr_delay)) + geom_histogram(binwidth=5) + geom_point(aes(x=mean(d25$arr_delay), y=0), color="red", size=4) + labs(x="Arrival Delays (actual-scheduled) in minutes for 25 flights", title=paste("Sample of 25 flights, with sample mean of ", mean(d25$arr_delay), sep="")) + xlim(-100, 500) + theme(text=element_text(size=15))
+
+d25 <- SF %>% sample_n(size = 25, replace=FALSE) 
+d25 %>% ggplot(aes(x=arr_delay)) + geom_histogram(binwidth=5) + geom_point(aes(x=mean(d25$arr_delay), y=0), color="red", size=4) + labs(x="Arrival Delays (actual-scheduled) in minutes for 25 flights", title=paste("Sample of 25 flights, with sample mean of ", mean(d25$arr_delay), sep=""))  + xlim(-100, 500) + theme(text=element_text(size=15)) 
+```
+
+## Review: Sampling distributions
+
+Recall, the **sampling distribution** of the mean of `arr_delay` is the distribution of all the values that `mean_delay` could be for random samples of size $n=25$
+
+To estimate the sampling distribution, let's look at 1000 values of `mean_delay`, calculated from 1000 random samples of size $n=25$ from our population
+
+```{r, echo=FALSE}
+set.seed(98)
+```
+
+```{r, eval=TRUE, echo=TRUE}
+sample_means <- rep(NA, 1000) # where we'll store the means
+
+for(i in 1:1000){
+  sample25 <- SF %>% sample_n(size=25)
+  sample_means[i] <- as.numeric(sample25 %>%
+                        summarize(mean(arr_delay)))
+}
+
+sample_means <- tibble(mean_delay = sample_means)
+```
+
+## Sampling distribution of the mean
+
+```{r, eval=FALSE}
+ggplot(sample_means, aes(x=mean_delay)) + 
+  geom_histogram(binwidth=5, color="black", fill="gray") +
+  labs(x="Means from samples of size 25",
+  title="Sampling distribution for the mean of arr_delay")
+```
+
+```{r, eval=TRUE, echo=FALSE, fig.height=5}
+ggplot(sample_means, aes(x=mean_delay)) + geom_histogram(binwidth=5, color="black", fill="gray") +
+ labs(x="Means from samples of size 25",
+ title="Sampling distribution for the mean of arr_delay")
+```
+
+
+### 3 histograms for question prompt
+
+```{r, eval=FALSE, echo=FALSE}
+set.seed(1)
+sample_means100 <- rep(NA, 500) # where we'll store the means
+sample_means200 <- rep(NA, 500) # where we'll store the means
+
+for(i in 1:500){
+  sample100 <- SF %>% sample_n(size=100)
+  sample200 <- SF %>% sample_n(size=200)
+  
+  sample_means100[i] <- as.numeric(sample100 %>% summarize(mean(arr_delay)))
+  sample_means200[i] <- as.numeric(sample200 %>% summarize(mean(arr_delay)))  
+}# end loop over i
+
+
+sample_means100 <- tibble(mean_delay = sample_means100)
+sample_means200 <- tibble(mean_delay = sample_means200)
+
+ggplot(sample_means, aes(x=mean_delay)) + geom_histogram(binwidth=5) + xlim(-25,55)
+ggplot(sample_means100, aes(x=mean_delay)) + geom_histogram(binwidth=2) + xlim(-25,55)
+ggplot(sample_means200, aes(x=mean_delay)) + geom_histogram(binwidth=1.5) + xlim(-25,55)
+
+```
+
+## Bootstrapping with R
+
+Suppose we do not observe the full population, and have only observed **one sample of size 200**
+
+```{r, eval=TRUE, echo=FALSE}
+set.seed(113)
+```
+
+```{r}
+observed_data <- SF %>% 
+  sample_n(size=200)
+```
+
+```{r, fig.height=6, echo=FALSE}
+hist_sample <- observed_data %>% 
+  ggplot(aes(arr_delay)) +
+  geom_histogram(binwidth=25,
+      fill="darkorchid4", color="black") +
+  theme(text=element_text(size=20)) +
+  labs(title="Histogram of arrival delay for a sample of 
+       n=200 from the population",
+       x="Arrival delay (in minutes)")
+hist_sample
+```
+
+### Let's calculate the mean arrival delay for this sample
+
+```{r}
+obs_mean <- observed_data %>%
+  summarize(mean(arr_delay))
+as.numeric(obs_mean)
+```
+
+## A bootstrap sample from our observed data
+
+.pull-left[
+```{r, fig.height=6, echo=FALSE}
+hist_sample
+```
+
+```{r}
+boot_samp <- observed_data %>% 
+  sample_n(size=200, replace=TRUE)
+```
+
+```{r, fig.height=5, echo=FALSE}
+boot_samp %>% 
+  ggplot(aes(arr_delay)) +
+  geom_histogram(binwidth=25,
+      fill="seagreen3", color="black") +
+  theme(text=element_text(size=20)) +
+  labs(title="Histogram of arrival delay for a 
+      bootstrap sample (n=200)",
+       x="Arrival delay (in minutes)") +
+  xlim(-100,375)
+```
+
+```{r}
+boot_mean <- boot_samp %>% 
+  summarize(mean_delay = 
+              mean(arr_delay))
+as.numeric(boot_mean)
+```
+
+### Another bootstrap sample from our observed data
+
+.pull-left[
+```{r, fig.height=6, echo=FALSE}
+hist_sample
+```
+
+```{r}
+boot_samp <- observed_data %>% 
+  sample_n(size=200, replace=TRUE)
+```
+
+```{r, fig.height=5, echo=FALSE}
+boot_samp %>% 
+  ggplot(aes(arr_delay)) +
+  geom_histogram(binwidth=25,
+      fill="seagreen3", color="black") +
+  theme(text=element_text(size=20)) +
+  labs(title="Histogram of arrival delay for a 
+      bootstrap sample (n=200)",
+       x="Arrival delay (in minutes)") +
+  xlim(-100,375)
+```
+
+```{r}
+boot_mean <- boot_samp %>% 
+  summarize(mean_delay = 
+              mean(arr_delay))
+as.numeric(boot_mean)
+```
+
+### And another bootstrap sample...
+
+```{r, fig.height=6, echo=FALSE}
+hist_sample
+```
+
+```{r}
+boot_samp <- observed_data %>% 
+  sample_n(size=200, replace=TRUE)
+```
+
+```{r, fig.height=5, echo=FALSE}
+boot_samp %>% 
+  ggplot(aes(arr_delay)) +
+  geom_histogram(binwidth=25,
+      fill="seagreen3", color="black") +
+  theme(text=element_text(size=20)) +
+  labs(title="Histogram of arrival delay for a 
+      bootstrap sample (n=200)",
+       x="Arrival delay (in minutes)") +
+  xlim(-100,375)
+```
+
+```{r}
+boot_mean <- boot_samp %>% 
+  summarize(mean_delay = 
+              mean(arr_delay))
+as.numeric(boot_mean)
+```
+
+```{r, echo=FALSE}
+set.seed(888)
+```
+
+```{r}
+boot_means <- rep(NA, 5000) # where we'll store the means
+for(i in 1:5000){
+  boot_samp <- observed_data %>% sample_n(size=200, replace=TRUE)
+  boot_means[i] <- 
+    as.numeric(boot_samp %>% 
+                 summarize(mean_delay = mean(arr_delay)))
+}
+boot_means <- tibble(mean_delay = boot_means)
+```
+
+```{r, fig.height=3, fig.align="center", eval=TRUE}
+ggplot(boot_means, aes(x=mean_delay)) +
+  geom_histogram(binwidth=1, fill="tan2", color="black") + 
+  labs(x="Means from bootstrap samples", 
+       title="Bootstrap sampling distribution for the mean arrival delay")
+  
+```
+
+### Percentiles (quantiles): an extension of quartiles
+
+For a number $p$ between 0 and 100,  the $p$th percentile is the smallest value that is larger or equal to $p$% of all the values 
+
+- Median ( $Q_2$ ): 50th percentile
+- First quartile ( $Q_1$ ): 25th percentile
+- Third quartile ( $Q_3$ ): 75th percentile
+
+Use the `quantile()` funciton in R to calculate these:
+```{r}
+# Calculate Q1, median, and Q3
+quantile(boot_means$mean_delay, c(0.25, 0.5, 0.75))
+# Can also calculate any other percentiles
+quantile(boot_means$mean_delay, c(0.025, 0.4, 0.57))
+```
+
+```{r, fig.height=3, echo=F}
+ggplot(boot_means, aes(x=mean_delay)) +
+  geom_histogram(binwidth=1, fill="seagreen3", color="black") + 
+  labs(x="Means from bootstrap samples", 
+       title="Bootstrap sampling distribution for the mean arrival delay") + 
+  geom_vline(xintercept=quantile(boot_means$mean_delay, 0.025), col="blue") +
+  geom_vline(xintercept=quantile(boot_means$mean_delay, 0.975), col="blue")
+```
+
+2.5th and 97.5th percentiles:
+```{r}
+quantile(boot_means$mean_delay, 
+         c(0.025, 0.975))
+```
+
+Recall true population mean: 
+```{r}
+as.numeric(population_mean)
+```
+
+## How often does this procedure give an interval that captures the population mean?
+
+This code is for the curious but NOT something we'll ask you to be able to make yourself. It also take aaaaaages to run, so that is why we have saved the output as a csv for you.
+
+```{r, eval=F, echo=F}
+set.seed(1)
+n_intervals <- 100
+perc025 <- rep(NA, n_intervals)  # where we'll store the lower limit of the intervals
+perc975 <- rep(NA, n_intervals)  # where we'll store the upper limit of the intervals
+
+sample_size <- 200
+
+replicates <- 5000
+
+for (i in 1:n_intervals){
+  # randomly sample a data set
+  observed_data <- SF %>% sample_n(size = sample_size, replace = FALSE)
+  
+  # get the bootstrap means
+  boot_means <- rep(NA, replicates)  # where we'll store the bootstrap means
+  for (j in 1:replicates)
+  {
+    boot_samp <- observed_data %>% sample_n(size = sample_size, replace=TRUE)
+    boot_means[j] <- as.numeric(boot_samp %>% summarize(mean(arr_delay)))
+  }
+  # get the 95% interval for this set of bootstrap means
+  perc025[i] <- quantile(boot_means, 0.025)
+  perc975[i] <- quantile(boot_means, 0.975)
+  
+  print(c(i,perc025[i], perc975[i]))
+}
+# write results to a file
+bootstrapCIs <- tibble(perc025, perc975)
+write.csv(bootstrapCIs, file = "bootstrapCIs.csv",row.names=FALSE)
+```
+
+
+```{r, echo=F, fig.height=3}
+manyCIs <- read.csv("bootstrapCIs.csv")
+manyCIs <- manyCIs %>% mutate(capture = ifelse(perc025 <= as.numeric(population_mean) & perc975 >= as.numeric(population_mean), "yes", "no"))
+manyCIsforplot <- tibble(
+  number=c(1:100, 1:100), 
+  limits=c(manyCIs$perc025, manyCIs$perc975),
+  capture=c(manyCIs$capture, manyCIs$capture))
+ggplot(manyCIsforplot, aes(x=limits, y=number, group=number, color=capture)) +
+  geom_point(size=2) +
+  geom_line() +
+  geom_vline(xintercept=as.numeric(population_mean), colour="black") +
+  labs(x="Confidence interval limits", y="",
+       title="100 bootstrap confidence intervals for the mean, \n based on random samples from the population (n=200)") +
+  theme_bw()
+```
